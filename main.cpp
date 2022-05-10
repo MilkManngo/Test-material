@@ -1,227 +1,221 @@
+#include <iostream>
+#include <memory>
+#include <vector>
+#include <cmath>
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
-#include <iostream>
-#include <vector>
+#include <stdlib.h>
 
-
-class CustomGuy: public sf::Sprite
-{
+class AnimatedAsset : public sf::Sprite{
 public:
-    CustomGuy(sf::Texture *texture)
-    {
-        setTexture(*texture);
+    float up_edge, down_edge, left_edge, right_edge, up, down, left, right, t_;
+    int speedX, speedY, fps_;
+    unsigned int fragments_index = 0;
+    std::vector<sf::IntRect> running_frames;
+
+    void setWindowBounds(const float& up_edge_, const float& down_edge_, const float& left_edge_, const float& right_edge_){
+        up_edge = up_edge_;
+        down_edge = down_edge_;
+        left_edge = left_edge_;
+        right_edge = right_edge_;
     }
-    void setBounds(const float &top_,const float &bot_,const float &left_,const float &right_)
-    {
-        bound_top = top_;
-        bound_bottom = bot_;
-        bound_left = left_;
-        bound_right = right_;
+
+    void setAssetBounds(){
+        up = getGlobalBounds().top;
+        down = getGlobalBounds().top+getGlobalBounds().height;
+        left = getGlobalBounds().left;
+        right = getGlobalBounds().left+getGlobalBounds().width;
     }
-    void moveInDirection(const sf::Time &elapsed,std::vector<bool> v)
+
+    void ifEdge(){
+
+        setAssetBounds();
+
+        if(left > right_edge) setPosition(0,getPosition().y);
+
+        else if(left < 0) setPosition(right_edge,getPosition().y);
+
+        if(up<0) setPosition(getPosition().x,down_edge) ;
+
+        else if(up>down_edge) setPosition(getPosition().x,0);
+    }
+
+
+
+    void VerticalSpeed(const int speed){ speedY = speed; };
+
+    void HorizontalSpeed(const int speed){ speedX = speed; };
+
+    void ContinousAnimation(const sf::Time &elapsed)
     {
+        float dt = elapsed.asSeconds();
+        t_ = t_ + dt;
+
+        if(t_ > 1.0/fps_)
+        {
+            fragments_index++;
+            t_ = 0.0;
+            if(fragments_index == running_frames.size())
+            {
+                fragments_index = 0;
+            }
+        }
+        setTextureRect(running_frames[fragments_index]);
+    }
+
+    void addAnimationFrame(const sf::IntRect& frame)
+    {
+        if(running_frames.size() >= 6)
+        {
+            running_frames.erase(running_frames.begin(),running_frames.end());
+        }
+        running_frames.emplace_back(frame);
+    }
+
+    void Animate (const sf::Time &elapsed)
+    {
+        float dt = elapsed.asSeconds();
+        t_ = t_ + dt;
+
+        if(t_ > 1.0/fps_)
+        {
+            fragments_index++;
+            t_ = 0.0;
+            if(fragments_index == running_frames.size())
+            {
+                fragments_index = 0;
+            }
+        }
+        setTextureRect(running_frames[fragments_index]);
+    }
+
+};
+
+class Hero : public AnimatedAsset{
+public:
+
+    sf::Texture texture_;
+
+    float d_ = 0.0, t_ = 0.0, goalX, goalY;
+    int fps_;
+
+    Hero(const int fps, const std::string& path): fps_(fps)
+    {
+        if (!texture_.loadFromFile(path)) {
+            std::cerr << "Could not load texture" << std::endl;
+        }
+        setTexture(texture_);
+        setTextureRect(sf::IntRect(60, 0, 30, 37));
+        setPosition(200,200);
+    }
+
+
+    void SetTarget (sf::Vector2i &mouse_position){
+        goalX = mouse_position.x;
+        goalY = mouse_position.y;
+
+
+    }
+
+    void GoToTarget(sf::Time &elapsed, int &m){
+        sf::FloatRect heroBounds = getGlobalBounds();
+        std::cout << heroBounds.top << std::endl;
         float time = elapsed.asSeconds();
-        sf::FloatRect guy = getGlobalBounds();
-        auto guy_top = guy.top;
-        auto guy_bottom = guy.top + guy.height;
-        auto guy_left = guy.left;
-        auto guy_right = guy.left+ guy.width;
+        if (heroBounds.top-goalY >= abs(heroBounds.top-goalY)){
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
-        {
-            if(guy_top - 1 >= bound_top)
-            {
-                if(v[0] == true)
-                {
-                    move(0,m_speed_y*time * -1.0);
-                }
-            }
-        }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
-        {
-            if(guy_bottom + 1 <= bound_bottom)
-            {
-                if(v[1] == true)
-                {
-                     move(0,m_speed_y*time);
-                }
-            }
-        }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
-        {
-            if(guy_left - 1 >= bound_left)
-            {
-                if(v[2] == true)
-                {
-                     move(m_speed_x*time * -1.0,0);
-                }
-            }
-        }
+            move(0,speedY*time*-1);
+       }
+        else {
+            move(0,speedY*time);
+        };
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
-        {
-            if(guy_right + 1 <= bound_right)
-            {
-                if(v[3] == true)
-                {
-                     move(m_speed_x*time,0);
-                }
-            }
+        if (heroBounds.left-goalX >= abs(heroBounds.left-goalX)){
+            move(speedX*time*-1,0);
+            m = 1;
+
         }
-    }
-    void setSpeed(const int &x,const int &y)
-    {
-        m_speed_x = x;
-        m_speed_y = y;
-    }
+        else {
+            move(speedX*time,0);
 
-private:
-    int m_speed_x = 0;
-    int m_speed_y = 0;
-
-    int bound_top = 0;
-    int bound_bottom = 0;
-    int bound_left = 0;
-    int bound_right = 0;
+            m = 2;
+        }
+    };
 };
 
-class CustomGrass: public sf::Sprite
-{
+class Monster : public AnimatedAsset{
 public:
-    CustomGrass(sf::Texture* texture)
-    {
-        sf::RenderWindow window(sf::VideoMode(800, 600), "My window");
-        setTexture(*texture);
-        texture->setRepeated(true);
-        setTextureRect(sf::IntRect(0, 0, window.getSize().x, window.getSize().y));
-    }
-};
 
-class CustomWall: public sf::Sprite
-{
+    sf::Texture texture_;
+
+    float d_ = 0.0, t_ = 0.0, goalX, goalY;
+    int fps_;
+
+    Monster(const int fps, const std::string& path): fps_(fps)
+    {
+        if (!texture_.loadFromFile(path)) {
+            std::cerr << "Could not load texture" << std::endl;
+        }
+        setTexture(texture_);
+        setTextureRect(sf::IntRect(60, 0, 30, 37));
+        setPosition(200,200);
+    }
+
+
+
+};
+class Swamp : public AnimatedAsset{
 public:
-    CustomWall(sf::Texture *texture,int left, int top, int width, int height)
-        : Left(left), Top(top), Width(width), Height(height)
+
+    sf::Texture texture_;
+
+    float d_ = 0.0, t_ = 0.0, goalX, goalY;
+    int fps_;
+
+    Swamp(const int fps, const std::string& path): fps_(fps)
     {
-        sf::RenderWindow window(sf::VideoMode(800, 600), "My window");
-        setTexture(*texture);
-        texture->setRepeated(true);
-        setTextureRect(sf::IntRect(0,0,Width,Height));
-        setPosition(Left,Top);
+        if (!texture_.loadFromFile(path)) {
+            std::cerr << "Could not load texture" << std::endl;
+        }
+        setTexture(texture_);
+        setTextureRect(sf::IntRect(60, 0, 30, 37));
+        setPosition(200,200);
     }
-private:
-    int Left;
-    int Top;
-    int Width;
-    int Height;
+
+
+
 };
-
-std::vector<bool> Colisions(const CustomGuy &guy,std::vector<CustomWall> &walls)
-{
-    std::vector<bool> v(4, 1);
-
-    sf::FloatRect guy_ = guy.getGlobalBounds();
-    auto guy_top = guy_.top;
-    auto guy_bottom = guy_.top + guy_.height;
-    auto guy_left = guy_.left;
-    auto guy_right = guy_.left+ guy_.width;
-
-    for(auto &wall_: walls)
-    {
-        sf::FloatRect wall = wall_.getGlobalBounds();
-        auto wall_bottom = wall.top + wall.height;
-        auto wall_left = wall.left - guy_.width;
-        auto wall_right = wall.left + wall.width + guy_.width;
-
-        if(guy_top - 1 <= wall_bottom && guy_bottom + 1 >= wall_bottom && guy_left >= wall_left && guy_right <= wall_right)
-        {
-            v[0] = 0;
-            break;
-        }
-    }
-    for(auto &wall_: walls)
-    {
-        sf::FloatRect wall = wall_.getGlobalBounds();
-        auto wall_top = wall.top;
-        auto wall_left = wall.left - guy_.width;
-        auto wall_right = wall.left + wall.width + guy_.width;
-
-        if(guy_top - 1 <= wall_top && guy_bottom + 1 >= wall_top && guy_left >= wall_left && guy_right <= wall_right )
-        {
-            v[1] = 0;
-            break;
-        }
-    }
-    for(auto &wall_: walls)
-    {
-        sf::FloatRect wall = wall_.getGlobalBounds();
-        auto wall_top = wall.top;
-        auto wall_bottom = wall.top + wall.height;
-        auto wall_right = wall.left + wall.width;
-
-        if(guy_top <= wall_bottom && guy_bottom >= wall_top && guy_left - 1 <= wall_right && guy_right + 1 >= wall_right)
-        {
-            v[2] = 0;
-            break;
-        }
-    }
-    for(auto &wall_: walls)
-    {
-        sf::FloatRect wall = wall_.getGlobalBounds();
-        auto wall_top = wall.top;
-        auto wall_bottom = wall.top + wall.height;
-        auto wall_left = wall.left;
-
-        if(guy_top <= wall_bottom && guy_bottom >= wall_top && guy_left - 1 <= wall_left && guy_right + 1 >= wall_left)
-        {
-            v[3] = 0;
-            break;
-        }
-    }
-    return(v);
-}
 
 int main()
 {
+    bool a = true;
+    int m = 0;
     sf::RenderWindow window(sf::VideoMode(800, 600), "My window");
 
-    sf::Clock clock;
-    float time_passed = 0.0;
 
-    sf::Texture texture_guy;
-    sf::Texture texture_grass;
     sf::Texture texture_wall;
+    if(!texture_wall.loadFromFile("C:/Users/agama/Desktop/Szkola/Qt Projects/semester 2/polymorphism_0_textures/wall.png")) { return 1; };
 
 
-    if(!texture_guy.loadFromFile("C:/Users/agama/Desktop/Szkola/Qt Projects/semester 2/polymorphism_0_textures/guy.png")) { return 1; }
-    if(!texture_grass.loadFromFile("C:/Users/agama/Desktop/Szkola/Qt Projects/semester 2/polymorphism_0_textures/grass.png")) { return 1; }
-    if(!texture_wall.loadFromFile("C:/Users/agama/Desktop/Szkola/Qt Projects/semester 2/polymorphism_0_textures/wall.png")) { return 1; }
 
-    CustomGuy guy(&texture_guy);
-    CustomGrass grass(&texture_grass);
-    std::vector<CustomWall> walls;
+    Hero hero(10, "C:/Users/agama/Desktop/Szkola/Qt Projects/semester 2/build-platformer-Desktop_Qt_6_3_0_MinGW_64_bit-Debug/release/character.png");
+    hero.setWindowBounds(0, window.getSize().x, 0, window.getSize().y);
+    hero.VerticalSpeed(250);
+    hero.HorizontalSpeed(250);
 
-    CustomWall wall_1(&texture_wall, 50, 0, 750, 50);
-    walls.emplace_back(wall_1);
-    CustomWall wall_2(&texture_wall, 50, 150, 50, 450);
-    walls.emplace_back(wall_2);
-    CustomWall wall_3(&texture_wall, 750, 0, 50, 450);
-    walls.emplace_back(wall_3);
-    CustomWall wall_4(&texture_wall, 50, 550, 750, 50);
-    walls.emplace_back(wall_4);
-    CustomWall wall_5(&texture_wall, 100, 150, 550, 50);
-    walls.emplace_back(wall_5);
-    CustomWall wall_6(&texture_wall, 200, 400, 550, 50);
-    walls.emplace_back(wall_6);
+    sf::Clock clock;
 
+    hero.setScale(1.5,1.5);
+    hero.addAnimationFrame(sf::IntRect(160, 0, 30, 37));
+    hero.addAnimationFrame(sf::IntRect(210, 0, 30, 37));
+    hero.addAnimationFrame(sf::IntRect(260, 0, 30, 37));
+    hero.addAnimationFrame(sf::IntRect(310, 0, 30, 37));
+    hero.addAnimationFrame(sf::IntRect(360, 0, 30, 37));
+    hero.addAnimationFrame(sf::IntRect(410, 0, 30, 37));
 
-    guy.setSpeed(200,200);
-    guy.setBounds(0, window.getSize().y, 0, window.getSize().x);
 
     while (window.isOpen())
     {
         sf::Time elapsed = clock.restart();
-        time_passed = time_passed + elapsed.asSeconds();
 
         sf::Event event;
         while (window.pollEvent(event))
@@ -229,12 +223,70 @@ int main()
             if (event.type == sf::Event::Closed)
                 window.close();
         }
-        guy.moveInDirection(elapsed,Colisions(guy,walls));
+         sf::Vector2i position = sf::Mouse::getPosition(window);
+         if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
+         hero.SetTarget(position);
+         hero.GoToTarget(elapsed, m);
+         }
+         hero.ifEdge();
+        if(a == true)
+        {
+             hero.addAnimationFrame(sf::IntRect(40, 0, -30, 37));
+             hero.addAnimationFrame(sf::IntRect(40, 0, -30, 37));
+             hero.addAnimationFrame(sf::IntRect(40, 0, -30, 37));
+             hero.addAnimationFrame(sf::IntRect(40, 0, -30, 37));
+             hero.addAnimationFrame(sf::IntRect(40, 0, -30, 37));
+             hero.addAnimationFrame(sf::IntRect(40, 0, -30, 37));
+        }
+        if(m == 2)
+        {
+            a = false;
+            hero.addAnimationFrame(sf::IntRect(160, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(210, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(260, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(310, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(360, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(410, 0, 30, 37));
+        }
+        else if(m == 1)
+        {
+            a = true;
+            hero.addAnimationFrame(sf::IntRect(190, 0, -30, 37));
+            hero.addAnimationFrame(sf::IntRect(240, 0, -30, 37));
+            hero.addAnimationFrame(sf::IntRect(290, 0, -30, 37));
+            hero.addAnimationFrame(sf::IntRect(340, 0, -30, 37));
+            hero.addAnimationFrame(sf::IntRect(390, 0, -30, 37));
+            hero.addAnimationFrame(sf::IntRect(440, 0, -30, 37));
+        }
+        else if(a == false)
+        {
+            hero.addAnimationFrame(sf::IntRect(10, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(10, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(10, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(10, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(10, 0, 30, 37));
+            hero.addAnimationFrame(sf::IntRect(10, 0, 30, 37));
+        }
 
-        window.draw(grass);
-        window.draw(guy);
-        for(auto &wall: walls)
-            window.draw(wall);
+        window.clear(sf::Color::Black);
+
+        sf::Texture texture;
+        if (!texture.loadFromFile("C:/Users/agama/Desktop/Szkola/Qt Projects/semester 2/polymorphism_0_textures/grass.png")) {
+            std::cerr << "Could not load texture" << std::endl;
+            return 1;
+        }
+
+        texture.setRepeated(true);
+        sf::Sprite sprite;
+        sprite.setTexture(texture);
+        sprite.setTextureRect(sf::IntRect(0, 0, 800, 600));
+
+        hero.Animate(elapsed);
+
+
+        window.draw(sprite);
+        window.draw(hero);
+
 
         window.display();
     }
